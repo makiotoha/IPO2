@@ -6,7 +6,7 @@ import pandas as pd
 from icalendar import Calendar, Event
 import pytz
 
-# 配置日志格式
+# 配置日志
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
@@ -14,48 +14,40 @@ logging.basicConfig(
 
 def get_upcoming_ipo_stocks():
     """
-    通过 AkShare 获取包含当天及未来的全板块新股申购信息
+    使用同花顺接口 ak.stock_ipo_ths(symbol="全部A股")
+    获取当天及未来的全板块新股申购信息
     """
-    # 获取运行当天的动态日期（格式: YYYY-MM-DD）
+    # 动态获取脚本运行当天的日期（格式: YYYY-MM-DD）
     today_str = datetime.date.today().strftime("%Y-%m-%d")
-    logging.info(f"正在查询自 {today_str} 起的未来新股申购信息...")
+    logging.info(f"正在通过同花顺接口查询自 {today_str} 起的未来新股申购信息...")
 
     try:
-        # 使用最新 AKShare 接口获取新股申购日历数据（覆盖沪、深、京交所全板块）
-        ipo_df = ak.stock_ipo_ths()
+        # 调用同花顺接口，获取全部A股（含沪深、创业板、科创板、京市主板）的新股申购数据
+        ipo_df = ak.stock_ipo_ths(symbol="全部A股")
 
         if ipo_df is None or ipo_df.empty:
-            logging.info("未获取到新股数据或返回为空。")
+            logging.info("同花顺接口未返回任何新股数据。")
             return []
 
-        # 检查关键列名（如果接口字段变更，进行兼容处理）
-        date_col = None
-        for col in ['申购日期', '上网申购日', '申购日']:
-            if col in ipo_df.columns:
-                date_col = col
-                break
+        # 检查关键字段是否存在
+        required_cols = ['申购日期', '股票简称', '申购代码']
+        for col in required_cols:
+            if col not in ipo_df.columns:
+                logging.error(f"同花顺接口返回数据缺少字段: {col}，当前字段: {list(ipo_df.columns)}")
+                return []
 
-        if not date_col:
-            logging.error(f"未在返回数据中找到申购日期字段，当前列名: {list(ipo_df.columns)}")
-            return []
-
-        name_col = '股票简称' if '股票简称' in ipo_df.columns else '证券简称'
-        code_col = '申购代码' if '申购代码' in ipo_df.columns else '证券代码'
-
-        # 转换并清洗申购日期列
-        ipo_df['申购日期_str'] = pd.to_datetime(ipo_df[date_col], errors='coerce').dt.strftime('%Y-%m-%d')
-        
-        # 过滤掉日期解析失败的行
+        # 格式化并清洗申购日期
+        ipo_df['申购日期_str'] = pd.to_datetime(ipo_df['申购日期'], errors='coerce').dt.strftime('%Y-%m-%d')
         valid_df = ipo_df.dropna(subset=['申购日期_str'])
 
-        # 筛选“申购日期 >= 今天”的新股数据
+        # 筛选“申购日期 >= 今天”的新股
         future_ipos = valid_df[valid_df['申购日期_str'] >= today_str]
 
         ipo_list = []
         for _, row in future_ipos.iterrows():
-            ipo_date_str = str(row.get('申购日期_str', ''))
-            stock_name = str(row.get(name_col, 'N/A')).strip()
-            stock_code = str(row.get(code_col, 'N/A')).strip()
+            ipo_date_str = str(row.get('申购日期_str', '')).strip()
+            stock_name = str(row.get('股票简称', 'N/A')).strip()
+            stock_code = str(row.get('申购代码', 'N/A')).strip()
 
             if ipo_date_str and ipo_date_str != 'NaT':
                 ipo_list.append({
@@ -64,7 +56,7 @@ def get_upcoming_ipo_stocks():
                     "date": ipo_date_str
                 })
 
-        # 去重处理（避免接口重复返回同一只股票）
+        # 去重处理（根据 申购代码 + 申购日期）
         unique_ipo_list = []
         seen = set()
         for item in ipo_list:
@@ -77,7 +69,7 @@ def get_upcoming_ipo_stocks():
         return unique_ipo_list
 
     except Exception as e:
-        logging.error(f"获取新股数据发生异常: {e}")
+        logging.error(f"使用同花顺接口获取新股数据发生异常: {e}")
         return []
 
 def generate_ics_file(ipo_list, output_path="ipo.ics"):
@@ -118,8 +110,8 @@ def generate_ics_file(ipo_list, output_path="ipo.ics"):
     # 保存 .ics 文件
     with open(output_path, 'wb') as f:
         f.write(cal.to_ical())
-    
-    logging.info(f"已成功写入文件: {os.path.abspath(output_path)}")
+
+    logging.info(f"已成功写入订阅文件: {os.path.abspath(output_path)}")
 
 def main():
     ipo_list = get_upcoming_ipo_stocks()
