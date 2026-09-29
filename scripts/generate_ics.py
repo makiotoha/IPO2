@@ -22,7 +22,7 @@ def get_upcoming_ipo_stocks():
 
     try:
         # 使用最新 AKShare 接口获取新股申购日历数据（覆盖沪、深、京交所全板块）
-        ipo_df = ak.stock_ipo_declare_em()
+        ipo_df = ak.stock_ipo_ths()
 
         if ipo_df is None or ipo_df.empty:
             logging.info("未获取到新股数据或返回为空。")
