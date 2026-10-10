@@ -3,12 +3,4 @@ VERSION:2.0
 PRODID:-//A-Share IPO Calendar//makiotoha//CN
 X-WR-CALNAME:A股新股申购日历
 X-WR-TIMEZONE:Asia/Shanghai
-BEGIN:VEVENT
-SUMMARY:今日申购：通则康威
-DTSTART;TZID=Asia/Shanghai:20261009T093000
-DTEND;TZID=Asia/Shanghai:20261009T150000
-UID:301718-2026-10-09@ipo-calendar
-DESCRIPTION:股票简称: 通则康威\n申购代码: 301718\n发行价格
- : 26.88 元\n申购上限: 1.00 万股\n申购时间: 09:30 - 15:00
-END:VEVENT
 END:VCALENDAR
